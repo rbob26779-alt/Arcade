@@ -3,7 +3,7 @@ const app=express(),server=http.createServer(app),io=new Server(server);app.set(
 const {Pool}=require('pg'), PgStore=require('connect-pg-simple')(session);
 if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required: configure a persistent PostgreSQL database on Render.');
 if(!process.env.SESSION_SECRET||process.env.SESSION_SECRET.length<32)throw new Error('SESSION_SECRET must be a stable random value of at least 32 characters.');
-const OWNER_USERNAME=String(process.env.OWNER_USERNAME||'').trim().toLowerCase();
+const OWNER_USERNAME=String(process.env.OWNER_USERNAME||'potatozay12').trim().toLowerCase();
 const isOwner=u=>!!OWNER_USERNAME&&u===OWNER_USERNAME;
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('localhost')?false:{rejectUnauthorized:false},max:5});
 let db={users:{}},saveQueue=Promise.resolve(),databaseReady=false;
