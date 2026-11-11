@@ -118,10 +118,40 @@ function startSoloFPS(){
  const list=document.createElement('div');list.setAttribute('role','radiogroup');list.setAttribute('aria-label','Choose battleground');
  const cards=[];
  const preview=m=>{const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 132"><rect width="170" height="132" fill="'+m[3]+'"/><path d="M0 95 L170 76 L170 132 L0 132Z" fill="'+m[4]+'"/><path d="M0 125 L170 95" stroke="white" stroke-width="2" stroke-dasharray="12 10" opacity=".6"/><path d="M5 34 L48 24 L48 104 L5 116Z" fill="'+m[5]+'"/><path d="M48 24 L64 34 L64 100 L48 104Z" fill="#384b65"/><path d="M110 16 L154 23 L154 98 L110 88Z" fill="'+m[5]+'"/><path d="M154 23 L168 35 L168 103 L154 98Z" fill="#4e6480"/><path d="M73 55 L99 49 L99 97 L73 105Z" fill="'+m[5]+'"/><g stroke="white" stroke-width="2" opacity=".35"><path d="M15 48h25m-25 14h25m-25 14h25m101-40h27m-27 14h27m-27 14h27"/></g></svg>';return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)};
+ const modelPreview=m=>{
+  if(!window.THREE)return null;
+  const T=window.THREE;let renderer;
+  try{
+   renderer=new T.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true});
+   renderer.setSize(330,264,false);renderer.setPixelRatio(1);
+   const scene=new T.Scene();scene.background=new T.Color(m[3]);
+   const camera=new T.PerspectiveCamera(48,330/264,.1,100);camera.position.set(9,8,11);camera.lookAt(0,1,0);
+   scene.add(new T.HemisphereLight(0xffffff,0x657b93,2));
+   const light=new T.DirectionalLight(0xffffff,2);light.position.set(-4,12,7);scene.add(light);
+   const material=c=>new T.MeshLambertMaterial({color:c});
+   const floor=new T.Mesh(new T.BoxGeometry(16,.35,13),material(m[4]));floor.position.y=-.25;scene.add(floor);
+   const cube=(x,y,z,w,h,d,c)=>{const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),material(c));mesh.position.set(x,y,z);scene.add(mesh);return mesh};
+   if(m[0]==='city'){
+    cube(-4,2,-3,3,4,3,m[5]);cube(4,3,-3,3,6,3,'#3b6689');cube(-4,1.6,3,2.6,3.2,2.6,'#456f94');cube(4,1.4,3,3,2.8,2.5,'#6389aa');
+    for(const x of [-4,4])for(let y=1;y<5;y++)for(const z of [-4.55,-1.45])cube(x,y,z,.45,.35,.03,'#b7ddec');
+    cube(0,.02,0,2,.05,13,'#555f70');for(let z=-5;z<6;z+=2)cube(0,.055,z,.1,.03,.7,'#f2e6bd');
+   }else if(m[0]==='desert'){
+    cube(-4,1.4,-3,3,2.8,3,'#aa8058');cube(4,1.9,-3,3.5,3.8,3,'#c39966');cube(-4,1.1,3,3,2.2,3,'#b48a5b');cube(4,1.3,3,3,2.6,3,'#98734f');
+    for(const x of [-5.4,2.5])cube(x,3.1,-3, .5,.4,3.5,'#e3bf83');
+    cube(0,.22,0,2,.45,2,'#6a8e95');cube(0,.48,0,.8,.15,.8,'#d8e4d6');
+   }else{
+    cube(-4,1.7,-3,3,3.4,3,'#8caac1');cube(4,2.3,-3,3,4.6,3,'#6e91b2');cube(-4,1.5,3,3,3,3,'#a6c3d6');cube(4,1.3,3,3,2.6,3,'#7799b3');
+    for(const [x,z] of [[-4,-3],[4,-3],[-4,3],[4,3]]){const roof=new T.Mesh(new T.ConeGeometry(2.3,1.5,4),material('#f5fbff'));roof.position.set(x,3.5,z);roof.rotation.y=Math.PI/4;scene.add(roof)}
+    for(const x of [-1,1])cube(x,.2,0,.6,.5,5,'#f8fcff');
+   }
+   renderer.render(scene,camera);
+   const url=renderer.domElement.toDataURL('image/png');scene.traverse(obj=>{obj.geometry?.dispose();if(obj.material){const mats=Array.isArray(obj.material)?obj.material:[obj.material];mats.forEach(mat=>mat.dispose())}});renderer.dispose();return url
+  }catch(err){renderer?.dispose();return null}
+ };
  const start=document.createElement('button');start.type='button';start.style.cssText='display:block;margin:24px auto;padding:13px 32px;border-radius:10px;background:#276bd0;color:white;font-size:18px;cursor:pointer';
  function choose(id){chosen=id;cards.forEach(c=>{const active=c.dataset.map===id;c.setAttribute('aria-checked',String(active));c.style.background=active?'rgba(69,120,194,.2)':'transparent';c.style.outline=active?'2px solid #64a8ff':'none';c.style.borderRadius='12px'});start.textContent='▶ Play '+maps.find(m=>m[0]===id)[1]}
  maps.forEach(m=>{const card=document.createElement('button');card.type='button';card.dataset.map=m[0];card.setAttribute('role','radio');card.style.cssText='width:100%;display:flex;align-items:center;gap:16px;padding:16px 2px;text-align:left;background:transparent;color:inherit;border:0;border-bottom:1px solid #30343b;cursor:pointer;min-height:164px';
- const image=document.createElement('img');image.src=preview(m);image.alt=m[1]+' map preview';image.style.cssText='width:165px;height:132px;object-fit:cover;border-radius:18px;flex-shrink:0';
+ const image=document.createElement('img');image.src=modelPreview(m)||preview(m);image.alt=m[1]+' 3D map model preview';image.style.cssText='width:165px;height:132px;object-fit:cover;border-radius:18px;flex-shrink:0';
  const copy=document.createElement('span');copy.style.cssText='display:flex;flex-direction:column;gap:12px';const title=document.createElement('strong');title.textContent=m[1];title.style.fontSize='20px';const desc=document.createElement('span');desc.textContent=m[2];desc.style.cssText='font-size:18px;line-height:1.45';copy.append(title,desc);card.append(image,copy);card.onclick=()=>choose(m[0]);list.append(card);cards.push(card)});
  lobby.append(list);start.onclick=()=>{parent.innerHTML='';instance=FPSArena.make(parent,'solo',{map:chosen,difficulty:difficulty(),onInstance:next=>{instance=next},win:()=>endSolo(true,'You won the Neon Frontier AI arena!')})};lobby.append(start);parent.append(lobby);choose(chosen);
  arcadeCleanup=()=>{instance?.stop();instance=null}
