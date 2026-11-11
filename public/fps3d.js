@@ -38,7 +38,7 @@ function make(parent,mode,opts={}){
  if(mode!=='solo'){for(let i=0;i<botCount;i++){scene.remove(bots[i].group);avatars.delete('bot'+i)}}
  const me={x:3.5,z:3.5,y:0,vy:0,yaw:0,pitch:0},keys=new Set(),shots=[],clock=new T.Clock();let live=true,health=100,score=0,lastShot=0,lastSend=0,invulnerable=0,frame=0,opponents=[];
  const projectileMat=mat('#ffb343'),playerProjectileMat=mat('#64d4ff'),sphere=new T.SphereGeometry(.095,8,8);
- function projectile(from,to,enemy){const v=new T.Vector3(to.x-from.x,to.y-from.y,to.z-from.z).normalize(),mesh=new T.Mesh(sphere,enemy?projectileMat:playerProjectileMat);mesh.position.copy(from);scene.add(mesh);shots.push({mesh,v,enemy,life:1.4,hit:false})}
+ function projectile(from,to,enemy,target=null){const v=new T.Vector3(to.x-from.x,to.y-from.y,to.z-from.z).normalize(),mesh=new T.Mesh(sphere,enemy?projectileMat:playerProjectileMat);mesh.position.copy(from);scene.add(mesh);shots.push({mesh,v,enemy,target,life:1.4,hit:false})}
  const eye=()=>new T.Vector3(me.x,1.65+me.y,me.z);
  const direction=()=>new T.Vector3(-Math.sin(me.yaw)*Math.cos(me.pitch),-Math.sin(me.pitch),-Math.cos(me.yaw)*Math.cos(me.pitch));
  function shoot(){if(!live||performance.now()-lastShot<350)return;lastShot=performance.now();const from=eye(),dir=direction(),end=from.clone().addScaledVector(dir,30);projectile(from,end,false);
@@ -66,10 +66,18 @@ function make(parent,mode,opts={}){
  let vx=b.goal.x-b.x,vz=b.goal.z-b.z;for(const other of bots){if(other===b)continue;const sx=b.x-other.x,sz=b.z-other.z,d=Math.hypot(sx,sz);if(d>.01&&d<2){vx+=sx/d*4;vz+=sz/d*4}}const len=Math.hypot(vx,vz)||1,v=(1.1+level*.2)*dt,nx=b.x+vx/len*v,nz=b.z+vz/len*v;if(!blocked(nx,b.z))b.x=nx;if(!blocked(b.x,nz))b.z=nz;
  b.group.position.set(b.x,0,b.z);b.group.rotation.y=Math.atan2(me.x-b.x,me.z-b.z);
  const moving=Math.hypot(b.x-b.lastX,b.z-b.lastZ)>.001,bob=moving?Math.sin(frame*.13+b.phase)*.5:0;b.leftLeg.rotation.x=bob;b.rightLeg.rotation.x=-bob;b.leftArm.rotation.x=-bob*.7;b.rightArm.rotation.x=bob*.7;b.lastX=b.x;b.lastZ=b.z;
- if(dist<16&&performance.now()>b.nextShot){const start=new T.Vector3(b.x,1.45,b.z),end=eye(),ray=end.clone().sub(start),distance=ray.length();let clear=true;for(let d=.4;d<distance;d+=.25){const p=start.clone().addScaledVector(ray.clone().normalize(),d);if(blocked(p.x,p.z)){clear=false;break}}if(clear){b.nextShot=performance.now()+[2500,1900,1450,1100,800][level]+Math.random()*450;projectile(start,end,true)}}
+ if(performance.now()>b.nextShot){
+ // Bots can choose the player or another bot; shots are visible to everyone in solo mode.
+ const targets=[{x:me.x,z:me.z,isPlayer:true},...bots.filter(other=>other!==b).map(other=>({x:other.x,z:other.z,bot:other}))];
+ const nearby=targets.filter(t=>Math.hypot(t.x-b.x,t.z-b.z)<17);
+ if(nearby.length){const target=nearby[Math.floor(Math.random()*nearby.length)],start=new T.Vector3(b.x,1.45,b.z),end=new T.Vector3(target.x,target.isPlayer?1.65+me.y:1.45,target.z),ray=end.clone().sub(start),distance=ray.length(),dir=ray.clone().normalize();let clear=true;
+ for(let d=.4;d<distance;d+=.25){const p=start.clone().addScaledVector(dir,d);if(blocked(p.x,p.z)){clear=false;break}}
+ if(clear){b.nextShot=performance.now()+[2500,1900,1450,1100,800][level]+Math.random()*450;projectile(start,end,true,target.bot||'player')}}
+ }
+
  }
  for(const b of opponents){const a=avatars.get(b.username);if(!a)continue;a.group.position.set(b.x,b.y||0,b.z);a.group.rotation.y=b.a||0;const moving=Math.hypot(b.x-a.lastX,b.z-a.lastZ)>.006;const phase=frame*.12;const stride=moving?Math.sin(phase)*.5:0;a.leftLeg.rotation.x=stride;a.rightLeg.rotation.x=-stride;a.leftArm.rotation.x=-stride*.7;a.rightArm.rotation.x=stride*.7;a.lastX=b.x;a.lastZ=b.z}
- for(let i=shots.length-1;i>=0;i--){const s=shots[i];s.mesh.position.addScaledVector(s.v,dt*17);s.life-=dt;if(s.enemy&&!s.hit&&s.mesh.position.distanceTo(eye())<.5){s.hit=true;damage(10)}if(s.life<=0||s.hit||blocked(s.mesh.position.x,s.mesh.position.z)){scene.remove(s.mesh);shots.splice(i,1)}}
+ for(let i=shots.length-1;i>=0;i--){const s=shots[i];s.mesh.position.addScaledVector(s.v,dt*17);s.life-=dt;if(s.enemy&&!s.hit){if(s.target==='player'&&s.mesh.position.distanceTo(eye())<.5){s.hit=true;damage(10)}else if(s.target&&s.target!=='player'&&s.mesh.position.distanceTo(new T.Vector3(s.target.x,1.45,s.target.z))<.45){s.hit=true;s.target.health=Math.max(0,(s.target.health??100)-10);if(s.target.health===0){s.target.health=100;const spawnPoint=spawn[Math.floor(Math.random()*spawn.length)];s.target.x=spawnPoint[0];s.target.z=spawnPoint[1]}}}if(s.life<=0||s.hit||blocked(s.mesh.position.x,s.mesh.position.z)){scene.remove(s.mesh);shots.splice(i,1)}}
  if(mode==='online'&&performance.now()-lastSend>75){lastSend=performance.now();opts.send?.({type:'move',x:me.x,y:me.z,a:me.yaw,z:me.y,pitch:me.pitch})}
  hp.innerHTML='<div style="height:12px;border-radius:8px;background:#293a54;overflow:hidden"><div style="height:100%;width:'+health+'%;background:'+(health>30?'#51cf76':'#ff6969')+'"></div></div>';hud.textContent='❤️ '+health+'/100 HP · 10 damage per hit · '+(mode==='solo'?'AI defeated: '+score+'/12':'Online tags: '+score);
  renderer.render(scene,camera)
