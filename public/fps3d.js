@@ -11,17 +11,61 @@ function make(parent,mode,opts={}){
  const chooser=document.createElement('div');chooser.className='fps-map-choice';const label=document.createElement('label');label.textContent='🗺️ Map: ';const select=document.createElement('select');MAPS.forEach(m=>{const option=document.createElement('option');option.value=m.id;option.textContent=m.name;select.append(option)});select.value=selected.id;select.disabled=mode==='online';label.append(select);chooser.append(label);root.append(chooser);if(mode==='solo')select.onchange=()=>{const parentNode=root.parentNode;const newMap=select.value;stop();const next=make(parentNode,mode,{...opts,map:newMap});if(opts.onInstance)opts.onInstance(next)};else{const note=document.createElement('small');note.textContent=' · Host chooses the online map before Ready Up';chooser.append(note)}
  const hud=document.createElement('div');hud.className='fps-hud';root.append(hud);
  const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'default'});renderer.setSize(960,540);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.domElement.className='fps-view';renderer.domElement.tabIndex=0;root.append(renderer.domElement);
- const help=document.createElement('p');help.textContent='WASD move · Mouse look up/down/around · Space jump · Hold Shift to sprint · Click to fire · Esc release mouse';root.append(help);
+ const help=document.createElement('p');help.textContent='WASD move · Shift sprint · Space jump · Mouse aim · Click shoot · Esc release cursor';root.append(help);
  const button=document.createElement('button');button.textContent='🎮 Click to enter 3D arena';root.append(button);
  const scene=new T.Scene();scene.background=new T.Color(selected.sky);scene.fog=new T.Fog(selected.sky,24,65);
  const camera=new T.PerspectiveCamera(78,960/540,.06,90);const ambient=new T.HemisphereLight(0xffffff,0x53627a,2.1);scene.add(ambient);const sun=new T.DirectionalLight(0xffffff,1.7);sun.position.set(20,35,12);scene.add(sun);
  const mat=(c)=>new T.MeshLambertMaterial({color:c});const groundMat=mat(selected.ground),wallMat=mat(selected.wall),topMat=mat('#8b96ac');
  const floor=new T.Mesh(new T.PlaneGeometry(W,H),groundMat);floor.rotation.x=-Math.PI/2;floor.position.set(W/2,0,H/2);scene.add(floor);
- const grid=new T.GridHelper(Math.max(W,H),Math.max(W,H),0x4d6b55,0x5a795c);grid.position.set(W/2,.012,H/2);scene.add(grid);
+ // Distinct in-game architecture for each selected battleground.
+ const structure=(x,y,z,w,h,d,color)=>{const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),mat(color));mesh.position.set(x,y,z);scene.add(mesh);return mesh};
  const wallGeo=new T.BoxGeometry(1,3.5,1);
- for(let z=0;z<H;z++)for(let x=0;x<W;x++)if(cells[z][x]){const wall=new T.Mesh(wallGeo,wallMat);wall.position.set(x+.5,1.75,z+.5);scene.add(wall)}
+ for(let z=0;z<H;z++)for(let x=0;x<W;x++)if(cells[z][x]){
+  const boundary=x===0||z===0||x===W-1||z===H-1;
+  const color=selected.id==='city'?(boundary?'#334c68':'#4c718e'):selected.id==='desert'?(boundary?'#967049':'#b8915e'):(boundary?'#7194ae':'#9ebaca');
+  const wall=new T.Mesh(wallGeo,mat(color));wall.position.set(x+.5,1.75,z+.5);scene.add(wall)
+ }
+ const safeSpot=(x,z,r=1.5)=>{for(let dx=-r;dx<=r;dx+=.5)for(let dz=-r;dz<=r;dz+=.5)if(blocked(x+dx,z+dz))return false;return true};
+ // Buildings and props occupy decorative space only, with collision registered below.
+ const obstacles=[];
+ const addSolid=(x,z,w,d)=>{const x0=Math.floor(x-w/2),x1=Math.ceil(x+w/2),z0=Math.floor(z-d/2),z1=Math.ceil(z+d/2);for(let zz=z0;zz<z1;zz++)for(let xx=x0;xx<x1;xx++)if(zz>0&&xx>0&&zz<H-1&&xx<W-1)cells[zz][xx]=true;obstacles.push([x,z,w,d])};
+ const buildings=selected.id==='city'?
+ [[10,24,5,5,7],[24,10,5,5,10],[35,25,6,5,8],[53,29,5,6,6],[10,39,5,5,9]]:
+ selected.id==='desert'?
+ [[11,22,6,5,4],[26,11,6,5,5],[36,32,7,5,4],[52,31,6,5,6],[12,39,5,5,4]]:
+ [[10,24,6,5,5],[23,9,6,5,7],[35,26,6,6,5],[53,29,6,5,6],[11,39,5,5,5]];
+ for(const [x,z,w,d,h] of buildings){
+  if(!safeSpot(x,z,Math.max(w,d)/2+.6))continue;
+  addSolid(x,z,w,d);
+  const body=selected.id==='city'?'#537f9e':selected.id==='desert'?'#c39a6b':'#89aabe';
+  structure(x,h/2,z,w,h,d,body);
+  if(selected.id==='city'){
+   structure(x,h+.12,z,w+.25,.24,d+.25,'#2b4860');
+   for(let level=1.3;level<h-.5;level+=1.55)for(let offset=-w/2+.7;offset<w/2;offset+=1.35){
+    structure(x+offset,level,z+d/2+.035,.65,.75,.07,'#b7e1f3');
+    structure(x+offset,level,z-d/2-.035,.65,.75,.07,'#8dc4df');
+   }
+  }else if(selected.id==='desert'){
+   structure(x,h+.16,z,w+.6,.32,d+.6,'#e0bb88');
+   for(let offset=-w/2+.8;offset<w/2;offset+=1.7)structure(x+offset,1.6,z+d/2+.045,.6,1,.09,'#5b5147');
+   structure(x,1.1,z+d/2+.06,1.25,2.2,.1,'#614c3e');
+  }else{
+   const roof=new T.Mesh(new T.ConeGeometry(Math.max(w,d)*.8,2,4),mat('#f4fbff'));roof.rotation.y=Math.PI/4;roof.position.set(x,h+1,z);scene.add(roof);
+   structure(x,h+.08,z,w+.2,.18,d+.2,'#edf6fb');
+   for(let offset=-w/2+.9;offset<w/2;offset+=1.7)structure(x+offset,1.7,z+d/2+.05,.65,.8,.1,'#b8e6fa');
+  }
+ }
+ if(selected.id==='city'){
+  for(let x=6;x<59;x+=12){structure(x,.025,5,.12,.05,13,'#c9c9b7');structure(x,.025,44,.12,.05,5,'#c9c9b7')}
+  for(let z=6;z<44;z+=9)structure(32,.025,z,1.6,.05,.14,'#e5d7a2');
+ }else if(selected.id==='desert'){
+  for(const [x,z] of [[6,12],[40,8],[48,41],[20,37]]){structure(x,.5,z,.6,1,.6,'#997046');structure(x,1.4,z,1.2,.8,1.2,'#688565')}
+ }else{
+  for(const [x,z] of [[7,12],[39,9],[48,40],[19,36]]){structure(x,1.3,z,.32,2.6,.32,'#5b7b82');const cone=new T.Mesh(new T.ConeGeometry(1.4,3,6),mat('#d9eef3'));cone.position.set(x,3,z);scene.add(cone)}
+ }
+ const topMat=mat(selected.id==='desert'?'#d1b17d':selected.id==='snow'?'#d5e6f2':'#8696a5');
  const rampData=[[7,14,7,4],[45,7,8,4],[20,30,8,5],[48,40,7,4]];
- for(const [x,z,w,h] of rampData){const ramp=new T.Mesh(new T.BoxGeometry(w,.25,h),topMat);ramp.position.set(x+w/2,.13,z+h/2);scene.add(ramp);const stripe=new T.Mesh(new T.BoxGeometry(w,.04,.3),mat('#c7a96c'));stripe.position.set(x+w/2,.29,z+h/2);scene.add(stripe)}
+ for(const [x,z,w,d] of rampData){const pad=structure(x+w/2,.07,z+d/2,w,.14,d,selected.id==='snow'?'#d6e8ef':selected.id==='desert'?'#bfa06d':'#607d88');pad.userData.decorative=true}
  const box=(w,h,d,m)=>new T.Mesh(new T.BoxGeometry(w,h,d),m);
  const avatars=new Map(),botCount=9,level=clamp(opts.difficulty||0,0,4);
  function avatar(id,index){const group=new T.Group(),skin=mat(['#dfb38f','#ae785b','#e5c39f','#b98566'][index%4]),shirt=mat(['#3f72b4','#4b966c','#b45c57','#8965aa','#b29a43'][index%5]),pants=mat('#36465f'),hair=mat('#3b302c');
