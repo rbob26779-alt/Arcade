@@ -2,17 +2,21 @@
 const T=window.THREE;
 if(!T){window.FPSArena={make(parent){const p=document.createElement('p');p.textContent='3D engine could not load. Check your connection and refresh.';parent.append(p);return{stop(){p.remove()},update(){},tag(){},damage(){}}}};return}
 const W=64,H=48,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const cells=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>!x||!y||x===W-1||y===H-1||(x===15&&y>3&&y<16&&y!==8&&y!==13)||(y===18&&x>4&&x<28&&x!==11&&x!==22)||(x===42&&y>4&&y<25&&y!==10)||(y===39&&x>10&&x<51&&x!==19&&x!==33)||(x%13===0&&y%9<4)||(y%11===0&&x%10<3)));
+const MAPS=[{id:'city',name:'🏙️ Block City',sky:'#8bb9e9',ground:'#688a65',wall:'#697b98'},{id:'desert',name:'🏜️ Dusty Outpost',sky:'#f2c990',ground:'#bfa06a',wall:'#ae8059'},{id:'snow',name:'❄️ Frost Fortress',sky:'#b6d9fa',ground:'#d9e6ed',wall:'#819db7'}];
+let cells=[];
+function buildCells(id){return Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>{if(!x||!y||x===W-1||y===H-1)return true;if(id==='desert')return (x===18&&y>5&&y<39&&y!==16&&y!==29)||(y===24&&x>18&&x<57&&x!==31&&x!==48)||(x%16===0&&y%12<4);if(id==='snow')return (x===28&&y>4&&y<40&&y!==12&&y!==29)||(y===14&&x>6&&x<55&&x!==18&&x!==42)||(y===33&&x>9&&x<58&&x!==23&&x!==49)||(x%18===0&&y%13<4);return (x===15&&y>3&&y<16&&y!==8&&y!==13)||(y===18&&x>4&&x<28&&x!==11&&x!==22)||(x===42&&y>4&&y<25&&y!==10)||(y===39&&x>10&&x<51&&x!==19&&x!==33)||(x%13===0&&y%9<4)}))}
 const blocked=(x,z)=>{for(const [dx,dz] of [[-.24,-.24],[.24,.24],[-.24,.24],[.24,-.24]]){const cx=Math.floor(x+dx),cz=Math.floor(z+dz);if(cx<0||cz<0||cx>=W||cz>=H||cells[cz][cx])return true}return false};
 function make(parent,mode,opts={}){
+ const selected=MAPS.find(m=>m.id===opts.map)||MAPS[0];cells=buildCells(selected.id);
  const root=document.createElement('div');root.className='fps-root';parent.append(root);
+ const chooser=document.createElement('div');chooser.className='fps-map-choice';const label=document.createElement('label');label.textContent='🗺️ Map: ';const select=document.createElement('select');MAPS.forEach(m=>{const option=document.createElement('option');option.value=m.id;option.textContent=m.name;select.append(option)});select.value=selected.id;select.disabled=mode==='online';label.append(select);chooser.append(label);root.append(chooser);if(mode==='solo')select.onchange=()=>{const parentNode=root.parentNode;const newMap=select.value;stop();const next=make(parentNode,mode,{...opts,map:newMap});if(opts.onInstance)opts.onInstance(next)};else{const note=document.createElement('small');note.textContent=' · Host chooses the online map before Ready Up';chooser.append(note)}
  const hud=document.createElement('div');hud.className='fps-hud';root.append(hud);
  const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'default'});renderer.setSize(960,540);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.domElement.className='fps-view';renderer.domElement.tabIndex=0;root.append(renderer.domElement);
- const help=document.createElement('p');help.textContent='WASD move · Mouse look up/down/around · Space jump · Click to fire · Esc release mouse';root.append(help);
+ const help=document.createElement('p');help.textContent='WASD move · Mouse look up/down/around · Space jump · Hold Shift to sprint · Click to fire · Esc release mouse';root.append(help);
  const button=document.createElement('button');button.textContent='🎮 Click to enter 3D arena';root.append(button);
- const scene=new T.Scene();scene.background=new T.Color('#8bb9e9');scene.fog=new T.Fog('#8bb9e9',24,65);
+ const scene=new T.Scene();scene.background=new T.Color(selected.sky);scene.fog=new T.Fog(selected.sky,24,65);
  const camera=new T.PerspectiveCamera(78,960/540,.06,90);const ambient=new T.HemisphereLight(0xffffff,0x53627a,2.1);scene.add(ambient);const sun=new T.DirectionalLight(0xffffff,1.7);sun.position.set(20,35,12);scene.add(sun);
- const mat=(c)=>new T.MeshLambertMaterial({color:c});const groundMat=mat('#688a65'),wallMat=mat('#697b98'),topMat=mat('#8b96ac');
+ const mat=(c)=>new T.MeshLambertMaterial({color:c});const groundMat=mat(selected.ground),wallMat=mat(selected.wall),topMat=mat('#8b96ac');
  const floor=new T.Mesh(new T.PlaneGeometry(W,H),groundMat);floor.rotation.x=-Math.PI/2;floor.position.set(W/2,0,H/2);scene.add(floor);
  const grid=new T.GridHelper(Math.max(W,H),Math.max(W,H),0x4d6b55,0x5a795c);grid.position.set(W/2,.012,H/2);scene.add(grid);
  const wallGeo=new T.BoxGeometry(1,3.5,1);
@@ -43,7 +47,7 @@ function make(parent,mode,opts={}){
  if(nearest){if(mode==='solo'){nearest.health-=10;if(nearest.health<=0){score++;nearest.health=100;const p=spawn[Math.floor(Math.random()*spawn.length)];nearest.x=p[0];nearest.z=p[1]}}else opts.send?.({type:'tag',target:nearest.username})}
  if(mode==='solo'&&score>=12){live=false;opts.win?.()}
  }
- function onKeyDown(e){if(!live)return;const k=e.key.toLowerCase();if(['w','a','s','d',' ','arrowleft','arrowright','arrowup','arrowdown'].includes(k)&&document.activeElement===renderer.domElement){e.preventDefault();keys.add(k)}}
+ function onKeyDown(e){if(!live)return;const k=e.key.toLowerCase();if(['w','a','s','d',' ','arrowleft','arrowright','arrowup','arrowdown','shift'].includes(k)&&document.activeElement===renderer.domElement){e.preventDefault();keys.add(k)}}
  function onKeyUp(e){keys.delete(e.key.toLowerCase())}
  function onMouse(e){if(document.pointerLockElement===renderer.domElement){me.yaw-=e.movementX*.0028;me.pitch=clamp(me.pitch+e.movementY*.0028,-1.35,1.35)}}
  function onClick(){if(document.pointerLockElement===renderer.domElement)shoot();else{renderer.domElement.focus();renderer.domElement.requestPointerLock?.()}}
@@ -53,7 +57,7 @@ function make(parent,mode,opts={}){
  function damage(n){if(performance.now()<invulnerable)return;health=Math.max(0,health-n);invulnerable=performance.now()+550;if(!health){health=100;me.x=3.5;me.z=3.5;me.y=0;me.vy=0}}
  function frameLoop(){if(!live)return;requestAnimationFrame(frameLoop);const dt=Math.min(clock.getDelta(),.05);frame++;
  if(keys.has('arrowleft'))me.yaw+=dt*2;if(keys.has('arrowright'))me.yaw-=dt*2;if(keys.has('arrowup'))me.pitch=clamp(me.pitch-dt*1.4,-1.35,1.35);if(keys.has('arrowdown'))me.pitch=clamp(me.pitch+dt*1.4,-1.35,1.35);
- const forward=(keys.has('w')?1:0)-(keys.has('s')?1:0),strafe=(keys.has('d')?1:0)-(keys.has('a')?1:0),speed=4.4*dt;
+ const forward=(keys.has('w')?1:0)-(keys.has('s')?1:0),strafe=(keys.has('d')?1:0)-(keys.has('a')?1:0),speed=(keys.has('shift')?7.4:4.4)*dt;
  const dx=(-Math.sin(me.yaw)*forward+Math.cos(me.yaw)*strafe)*speed,dz=(-Math.cos(me.yaw)*forward-Math.sin(me.yaw)*strafe)*speed;
  if(!blocked(me.x+dx,me.z))me.x+=dx;if(!blocked(me.x,me.z+dz))me.z+=dz;
  if(keys.has(' ')&&me.y<=0)me.vy=6.2;me.vy-=15*dt;me.y=Math.max(0,me.y+me.vy*dt);if(!me.y)me.vy=0;
