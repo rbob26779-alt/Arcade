@@ -134,5 +134,5 @@ function make(parent,mode,opts={}){
  requestAnimationFrame(frameLoop);
  return{update(players){opponents=players.filter(p=>p.username!==opts.username).map(p=>({username:p.username,x:p.x,z:p.y,y:p.z||0,a:p.a}));const active=new Set(opponents.map(p=>p.username));for(const p of opponents)if(!avatars.has(p.username))avatar(p.username,avatars.size);for(const [id,a] of avatars)if(!id.startsWith('bot')&&!active.has(id)){scene.remove(a.group);avatars.delete(id)}},tag(){score++},damage,stop(){live=false;document.removeEventListener('keydown',onKeyDown);document.removeEventListener('keyup',onKeyUp);document.removeEventListener('mousemove',onMouse);if(document.pointerLockElement===renderer.domElement)document.exitPointerLock?.();renderer.dispose();root.remove()}}
 }
-window.FPSArena={make};
+window.FPSArena={make,ready:true};
 })();
