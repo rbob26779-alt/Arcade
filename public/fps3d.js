@@ -81,8 +81,6 @@ function make(parent,mode,opts={}){
  b.nextShot=performance.now()+[2300,1800,1350,1000,700][level]+Math.random()*500;
  }
  }
-
- }
  for(const b of opponents){const a=avatars.get(b.username);if(!a)continue;a.group.position.set(b.x,b.y||0,b.z);a.group.rotation.y=b.a||0;const moving=Math.hypot(b.x-a.lastX,b.z-a.lastZ)>.006;const phase=frame*.12;const stride=moving?Math.sin(phase)*.5:0;a.leftLeg.rotation.x=stride;a.rightLeg.rotation.x=-stride;a.leftArm.rotation.x=-stride*.7;a.rightArm.rotation.x=stride*.7;a.lastX=b.x;a.lastZ=b.z}
  for(let i=shots.length-1;i>=0;i--){const s=shots[i];s.mesh.position.addScaledVector(s.v,dt*17);s.life-=dt;if(s.enemy&&!s.hit){if(s.target==='player'&&s.mesh.position.distanceTo(eye())<.5){s.hit=true;damage(10)}else if(s.target&&s.target!=='player'&&s.mesh.position.distanceTo(new T.Vector3(s.target.x,1.45,s.target.z))<.45){s.hit=true;s.target.health=Math.max(0,(s.target.health??100)-10);if(s.target.health===0){s.target.health=100;const spawnPoint=spawn[Math.floor(Math.random()*spawn.length)];s.target.x=spawnPoint[0];s.target.z=spawnPoint[1]}}}if(s.life<=0||s.hit||blocked(s.mesh.position.x,s.mesh.position.z)){scene.remove(s.mesh);shots.splice(i,1)}}
  if(mode==='online'&&performance.now()-lastSend>75){lastSend=performance.now();opts.send?.({type:'move',x:me.x,y:me.z,a:me.yaw,z:me.y,pitch:me.pitch})}
