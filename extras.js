@@ -23,7 +23,7 @@ app.post('/api/admin/ban',requireLogin,ownerOnly,async(req,res)=>{const target=S
 const soloCooldown=new Map();
 app.post('/api/solo/result',requireLogin,async(req,res)=>{
  const u=req.session.user,x=get(u),game=req.body?.game,won=req.body?.won,elapsed=req.body?.elapsed,now=Date.now();
- if(!Number.isInteger(game)||game<0||game>21||typeof won!=='boolean'||!Number.isInteger(elapsed)||elapsed<0||elapsed>7200)return res.status(400).json({error:'Invalid result'});
+ if(!Number.isInteger(game)||game<0||game>22||typeof won!=='boolean'||!Number.isInteger(elapsed)||elapsed<0||elapsed>7200)return res.status(400).json({error:'Invalid result'});
  const day=new Date().toISOString().slice(0,10);if(x.soloDay!==day){x.soloDay=day;x.soloCount=0}
  if(x.soloCount>=30)return res.json({rewarded:false,message:'Daily solo reward limit reached (30 games).'});
  if(now-(soloCooldown.get(u)||0)<20000||elapsed<5)return res.json({rewarded:false,message:'Play a little longer before earning another reward.'});
