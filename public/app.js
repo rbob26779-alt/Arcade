@@ -153,6 +153,20 @@ function startSoloFPS(){
  maps.forEach(m=>{const card=document.createElement('button');card.type='button';card.dataset.map=m[0];card.setAttribute('role','radio');card.style.cssText='width:100%;display:flex;align-items:center;gap:16px;padding:16px 2px;text-align:left;background:transparent;color:inherit;border:0;border-bottom:1px solid #30343b;cursor:pointer;min-height:164px';
  const image=document.createElement('img');image.src=modelPreview(m)||preview(m);image.alt=m[1]+' 3D map model preview';image.style.cssText='width:165px;height:132px;object-fit:cover;border-radius:18px;flex-shrink:0';
  const copy=document.createElement('span');copy.style.cssText='display:flex;flex-direction:column;gap:12px';const title=document.createElement('strong');title.textContent=m[1];title.style.fontSize='20px';const desc=document.createElement('span');desc.textContent=m[2];desc.style.cssText='font-size:18px;line-height:1.45';copy.append(title,desc);card.append(image,copy);card.onclick=()=>choose(m[0]);list.append(card);cards.push(card)});
- lobby.append(list);start.onclick=()=>{parent.innerHTML='';instance=FPSArena.make(parent,'solo',{map:chosen,difficulty:difficulty(),onInstance:next=>{instance=next},win:()=>endSolo(true,'You won the Neon Frontier AI arena!')})};lobby.append(start);parent.append(lobby);choose(chosen);
+ lobby.append(list);start.onclick=()=>{
+ start.disabled=true;start.textContent='Loading 3D arena…';
+ try{
+  if(!window.THREE)throw new Error('The 3D engine did not load. Please refresh the page.');
+  const holder=document.createElement('div');
+  instance=FPSArena.make(holder,'solo',{map:chosen,difficulty:difficulty(),win:()=>endSolo(true,'You won the Neon Frontier AI arena!')});
+  parent.replaceChildren(holder);
+ }catch(error){
+  console.error('Neon Frontier startup failed:',error);
+  start.disabled=false;start.textContent='▶ Try again';
+  const message=document.createElement('p');message.setAttribute('role','alert');message.style.cssText='color:#ffb2b2;padding:12px';
+  message.textContent='Could not start the 3D arena: '+(error?.message||String(error));
+  lobby.querySelector('[role=alert]')?.remove();lobby.append(message);
+ }
+};lobby.append(start);parent.append(lobby);choose(chosen);
  arcadeCleanup=()=>{instance?.stop();instance=null}
 }
