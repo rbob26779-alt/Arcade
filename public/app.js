@@ -153,10 +153,22 @@ function startSoloFPS(){
  maps.forEach(m=>{const card=document.createElement('button');card.type='button';card.dataset.map=m[0];card.setAttribute('role','radio');card.style.cssText='width:100%;display:flex;align-items:center;gap:16px;padding:16px 2px;text-align:left;background:transparent;color:inherit;border:0;border-bottom:1px solid #30343b;cursor:pointer;min-height:164px';
  const image=document.createElement('img');image.src=modelPreview(m)||preview(m);image.alt=m[1]+' 3D map model preview';image.style.cssText='width:165px;height:132px;object-fit:cover;border-radius:18px;flex-shrink:0';
  const copy=document.createElement('span');copy.style.cssText='display:flex;flex-direction:column;gap:12px';const title=document.createElement('strong');title.textContent=m[1];title.style.fontSize='20px';const desc=document.createElement('span');desc.textContent=m[2];desc.style.cssText='font-size:18px;line-height:1.45';copy.append(title,desc);card.append(image,copy);card.onclick=()=>choose(m[0]);list.append(card);cards.push(card)});
- lobby.append(list);start.onclick=()=>{
+ lobby.append(list);start.onclick=async()=>{
  start.disabled=true;start.textContent='Loading 3D arena…';
+ const loadScript=src=>new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>{script.remove();reject(new Error('Failed to load '+src))};document.head.append(script)});
  try{
-  if(!window.THREE)throw new Error('The 3D engine did not load. Please refresh the page.');
+  if(!window.THREE){
+   let loaded=false;
+   for(const url of ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r146/three.min.js','https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js','https://unpkg.com/three@0.146.0/build/three.min.js']){
+    try{await loadScript(url);if(window.THREE){loaded=true;break}}catch(e){console.warn('3D library source failed:',e)}
+   }
+   if(!loaded)throw new Error('The 3D graphics library could not load. Check your connection or browser settings.');
+  }
+  // fps3d.js can run before a CDN fallback completes, leaving a placeholder.
+  if(!window.FPSArena||!window.FPSArena.ready){
+   await loadScript('/fps3d.js?v=launchfix3');
+  }
+  if(!window.FPSArena?.ready)throw new Error('The 3D game engine did not initialize.');
   const holder=document.createElement('div');
   instance=FPSArena.make(holder,'solo',{map:chosen,difficulty:difficulty(),win:()=>endSolo(true,'You won the Neon Frontier AI arena!')});
   parent.replaceChildren(holder);
