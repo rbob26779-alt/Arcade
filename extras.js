@@ -1,9 +1,9 @@
 
-module.exports=({app,io,db,save,parties,emit,init,publicUser})=>{
+module.exports=({app,io,db,save,parties,emit,init,publicUser,isOwner})=>{
 const avatars=['🎮','🦊','🐉','👾','🚀','🐱','🦄','⚡','🐼','🦁'];
 const get=u=>db.users[u];
 const profile=u=>{let x=get(u);return { ...publicUser(u),avatar:x.avatar||'🎮',xp:x.xp||0,level:1+Math.floor((x.xp||0)/100),achievements:x.achievements||[],friends:x.friends||[] }};
-const requireLogin=(req,res,next)=>{if(!req.session.user||!get(req.session.user))return res.status(401).json({error:'Log in first'});next()};
+const requireLogin=(req,res,next)=>{if(!req.session.user||!get(req.session.user)||get(req.session.user).banned)return res.status(401).json({error:'Log in first'});next()};
 app.get('/api/profile',requireLogin,(req,res)=>res.json(profile(req.session.user)));
 app.post('/api/avatar',requireLogin,(req,res)=>{let a=req.body?.avatar;if(!avatars.includes(a))return res.status(400).json({error:'Invalid avatar'});get(req.session.user).avatar=a;save();res.json(profile(req.session.user))});
 app.get('/api/friends',requireLogin,(req,res)=>{let u=req.session.user,x=get(u);res.json({friends:(x.friends||[]).filter(get).map(profile),requests:(x.requests||[]).filter(get)})});
@@ -11,6 +11,10 @@ app.post('/api/friend/request',requireLogin,(req,res)=>{let u=req.session.user,v
 app.post('/api/friend/accept',requireLogin,(req,res)=>{let u=req.session.user,v=String(req.body?.username||'').toLowerCase(),x=get(u),y=get(v);if(!y||!(x.requests||[]).includes(v))return res.status(400).json({error:'No request from that player'});x.requests=x.requests.filter(n=>n!==v);x.friends=x.friends||[];y.friends=y.friends||[];if(!x.friends.includes(v))x.friends.push(v);if(!y.friends.includes(u))y.friends.push(u);save();res.json({ok:true})});
 app.get('/api/players',requireLogin,(req,res)=>res.json(Object.keys(db.users).slice(0,150).map(u=>({username:u,avatar:get(u).avatar||'🎮'}))));
 const online=new Map(),timers=new Map(),inputs=new Map();
+const ownerOnly=(req,res,next)=>isOwner(req.session.user)?next():res.status(403).json({error:'Owner access only'});
+app.get('/api/admin/players',requireLogin,ownerOnly,(req,res)=>res.json(Object.keys(db.users).sort().map(username=>({username,role:isOwner(username)?'owner':'player',banned:!!get(username).banned,wins:get(username).wins||0,points:get(username).points||0,xp:get(username).xp||0,played:get(username).played||0}))));
+app.post('/api/admin/ban',requireLogin,ownerOnly,async(req,res)=>{const target=String(req.body?.username||'').trim().toLowerCase(),ban=req.body?.banned;if(!get(target)||typeof ban!=='boolean')return res.status(400).json({error:'Invalid player or action'});if(isOwner(target))return res.status(403).json({error:'Owner cannot be banned'});get(target).banned=ban;try{await save();if(ban){for(const s of io.sockets.sockets.values())if(s.data.user===target){s.emit('errorMsg','Your account has been banned');s.disconnect(true)}}res.json({ok:true})}catch{res.status(503).json({error:'Unable to save ban'})}});
+
 // Casual solo rewards are capped and cooldown-limited; competitive leaderboard wins remain online-only.
 const soloCooldown=new Map();
 app.post('/api/solo/result',requireLogin,async(req,res)=>{
@@ -26,7 +30,7 @@ const publish=p=>{if(p.game==='pong'&&p.pong)io.to(p.code).emit('pong',p.pong);e
 function reward(p,w){if(p.winner)return;p.winner=w;const [a,b]=p.players;if(!a||!b)return;for(let u of [a,b]){let x=get(u);if(!x)continue;x.played=(x.played||0)+1;x.xp=(x.xp||0)+(w==='draw'?15:w===u?50:20);x.achievements=x.achievements||[];if(!x.achievements.includes('First Match'))x.achievements.push('First Match');if(w==='draw'){x.draws=(x.draws||0)+1;x.points=(x.points||0)+1}else if(w===u){x.wins=(x.wins||0)+1;x.points=(x.points||0)+3;if(!x.achievements.includes('First Victory'))x.achievements.push('First Victory');if(x.wins>=10&&!x.achievements.includes('10 Wins'))x.achievements.push('10 Wins')}else x.losses=(x.losses||0)+1}save();publish(p)}
 function stop(c){if(timers.has(c))clearInterval(timers.get(c));timers.delete(c);inputs.delete(c)}
 function pongStart(p){stop(p.code);p.pong={ball:{x:400,y:220,vx:4*(Math.random()<.5?1:-1),vy:2.5},paddles:[180,180],score:[0,0]};let c=p.code;inputs.set(c,[0,0]);let id=setInterval(()=>{if(parties.get(c)!==p||p.game!=='pong'||p.players.length!==2){stop(c);return}let s=p.pong,b=s.ball,inp=inputs.get(c)||[0,0];for(let k=0;k<2;k++)s.paddles[k]=Math.max(0,Math.min(360,s.paddles[k]+inp[k]*8));b.x+=b.vx;b.y+=b.vy;if(b.y<8||b.y>432)b.vy*=-1;for(let k=0;k<2;k++){let edge=k===0?32:768;if((k===0&&b.x<=edge+9&&b.x>=edge-10&&b.vx<0)||(k===1&&b.x>=edge-9&&b.x<=edge+10&&b.vx>0)){if(b.y>=s.paddles[k]-8&&b.y<=s.paddles[k]+88){b.vx*=-1.045;b.vy+=(b.y-(s.paddles[k]+40))/25}}}if(b.x<0||b.x>800){let scorer=b.x<0?1:0;s.score[scorer]++;b.x=400;b.y=220;b.vx=4*(scorer===0?-1:1);b.vy=(Math.random()-.5)*5;if(s.score[scorer]>=5){stop(c);reward(p,p.players[scorer]);emit(p);return}}io.to(c).emit('pong',s)},50);timers.set(c,id)}
-io.on('connection',socket=>{let u=socket.request.session?.user;if(!u||!get(u))return;online.set(u,(online.get(u)||0)+1);io.emit('onlineUsers',[...online.keys()]);
+io.on('connection',socket=>{let u=socket.request.session?.user;if(!u||!get(u)||get(u).banned)return;online.set(u,(online.get(u)||0)+1);io.emit('onlineUsers',[...online.keys()]);
 socket.on('joinParty',()=>{let p=parties.get(socket.data.code);if(p&&p.game==='pong'&&p.players.length===2&&!timers.has(p.code))pongStart(p)});
 socket.on('extraGame',game=>{let p=parties.get(socket.data.code);if(!p||p.host!==u||!['pong','rps','reaction'].includes(game))return;stop(p.code);p.game=game;p.winner=null;p.turn='X';p.board=[];p.choices={};p.round=0;if(game==='pong'&&p.players.length===2)pongStart(p);emit(p)});
 socket.on('restartMatch',()=>{let p=parties.get(socket.data.code);if(!p||p.host!==u||p.players.length!==2||!p.winner)return;stop(p.code);p.winner=null;p.turn='X';p.choices={};p.round=0;p.lastRound=null;p.goAt=null;p.board=init(p.game);if(p.game==='pong')pongStart(p);emit(p)});
