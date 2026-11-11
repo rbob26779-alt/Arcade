@@ -3,11 +3,10 @@ const T=window.THREE;
 if(!T){window.FPSArena={make(parent){const p=document.createElement('p');p.textContent='3D engine could not load. Check your connection and refresh.';parent.append(p);return{stop(){p.remove()},update(){},tag(){},damage(){}}}};return}
 const W=64,H=48,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const MAPS=[{id:'city',name:'🏙️ Block City',sky:'#8bb9e9',ground:'#688a65',wall:'#697b98'},{id:'desert',name:'🏜️ Dusty Outpost',sky:'#f2c990',ground:'#bfa06a',wall:'#ae8059'},{id:'snow',name:'❄️ Frost Fortress',sky:'#b6d9fa',ground:'#d9e6ed',wall:'#819db7'}];
-let cells=[];
 function buildCells(id){return Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>{if(!x||!y||x===W-1||y===H-1)return true;if(id==='desert')return (x===18&&y>5&&y<39&&y!==16&&y!==29)||(y===24&&x>18&&x<57&&x!==31&&x!==48)||(x%16===0&&y%12<4);if(id==='snow')return (x===28&&y>4&&y<40&&y!==12&&y!==29)||(y===14&&x>6&&x<55&&x!==18&&x!==42)||(y===33&&x>9&&x<58&&x!==23&&x!==49)||(x%18===0&&y%13<4);return (x===15&&y>3&&y<16&&y!==8&&y!==13)||(y===18&&x>4&&x<28&&x!==11&&x!==22)||(x===42&&y>4&&y<25&&y!==10)||(y===39&&x>10&&x<51&&x!==19&&x!==33)||(x%13===0&&y%9<4)}))}
-const blocked=(x,z)=>{for(const [dx,dz] of [[-.24,-.24],[.24,.24],[-.24,.24],[.24,-.24]]){const cx=Math.floor(x+dx),cz=Math.floor(z+dz);if(cx<0||cz<0||cx>=W||cz>=H||cells[cz][cx])return true}return false};
 function make(parent,mode,opts={}){
- const selected=MAPS.find(m=>m.id===opts.map)||MAPS[0];cells=buildCells(selected.id);
+ const selected=MAPS.find(m=>m.id===opts.map)||MAPS[0];const cells=buildCells(selected.id);
+ const blocked=(x,z)=>{for(const [dx,dz] of [[-.24,-.24],[.24,.24],[-.24,.24],[.24,-.24]]){const cx=Math.floor(x+dx),cz=Math.floor(z+dz);if(cx<0||cz<0||cx>=W||cz>=H||cells[cz][cx])return true}return false};
  const root=document.createElement('div');root.className='fps-root';parent.append(root);
  const chooser=document.createElement('div');chooser.className='fps-map-choice';const label=document.createElement('label');label.textContent='🗺️ Map: ';const select=document.createElement('select');MAPS.forEach(m=>{const option=document.createElement('option');option.value=m.id;option.textContent=m.name;select.append(option)});select.value=selected.id;select.disabled=mode==='online';label.append(select);chooser.append(label);root.append(chooser);if(mode==='solo')select.onchange=()=>{const parentNode=root.parentNode;const newMap=select.value;stop();const next=make(parentNode,mode,{...opts,map:newMap});if(opts.onInstance)opts.onInstance(next)};else{const note=document.createElement('small');note.textContent=' · Host chooses the online map before Ready Up';chooser.append(note)}
  const hud=document.createElement('div');hud.className='fps-hud';root.append(hud);
@@ -67,12 +66,20 @@ function make(parent,mode,opts={}){
  b.group.position.set(b.x,0,b.z);b.group.rotation.y=Math.atan2(me.x-b.x,me.z-b.z);
  const moving=Math.hypot(b.x-b.lastX,b.z-b.lastZ)>.001,bob=moving?Math.sin(frame*.13+b.phase)*.5:0;b.leftLeg.rotation.x=bob;b.rightLeg.rotation.x=-bob;b.leftArm.rotation.x=-bob*.7;b.rightArm.rotation.x=bob*.7;b.lastX=b.x;b.lastZ=b.z;
  if(performance.now()>b.nextShot){
- // Bots can choose the player or another bot; shots are visible to everyone in solo mode.
- const targets=[{x:me.x,z:me.z,isPlayer:true},...bots.filter(other=>other!==b).map(other=>({x:other.x,z:other.z,bot:other}))];
- const nearby=targets.filter(t=>Math.hypot(t.x-b.x,t.z-b.z)<17);
- if(nearby.length){const target=nearby[Math.floor(Math.random()*nearby.length)],start=new T.Vector3(b.x,1.45,b.z),end=new T.Vector3(target.x,target.isPlayer?1.65+me.y:1.45,target.z),ray=end.clone().sub(start),distance=ray.length(),dir=ray.clone().normalize();let clear=true;
- for(let d=.4;d<distance;d+=.25){const p=start.clone().addScaledVector(dir,d);if(blocked(p.x,p.z)){clear=false;break}}
- if(clear){b.nextShot=performance.now()+[2500,1900,1450,1100,800][level]+Math.random()*450;projectile(start,end,true,target.bot||'player')}}
+ // Choose a visible opponent, including other bots. Bot-vs-bot is preferred
+ // when another bot is nearby, so the arena has independent AI battles.
+ const candidates=[...bots.filter(other=>other!==b).map(other=>({x:other.x,z:other.z,bot:other})),{x:me.x,z:me.z,isPlayer:true}];
+ const visible=[];
+ const start=new T.Vector3(b.x,1.45,b.z);
+ for(const t of candidates){const distance=Math.hypot(t.x-b.x,t.z-b.z);if(distance>19||distance<.5)continue;
+ const end=new T.Vector3(t.x,t.isPlayer?1.65+me.y:1.45,t.z),dir=end.clone().sub(start).normalize();let clear=true;
+ for(let d=.4;d<distance-.4;d+=.3){const p=start.clone().addScaledVector(dir,d);if(blocked(p.x,p.z)){clear=false;break}}
+ if(clear)visible.push({target:t,end,distance})}
+ if(visible.length){const botTargets=visible.filter(v=>v.target.bot);const pool=botTargets.length&&Math.random()<.7?botTargets:visible;const chosen=pool[Math.floor(Math.random()*pool.length)];
+ b.group.rotation.y=Math.atan2(chosen.target.x-b.x,chosen.target.z-b.z);
+ projectile(start,chosen.end,true,chosen.target.bot||'player')}
+ b.nextShot=performance.now()+[2300,1800,1350,1000,700][level]+Math.random()*500;
+ }
  }
 
  }
