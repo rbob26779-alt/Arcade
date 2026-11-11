@@ -34,17 +34,27 @@ function make(parent,mode,options={}){
  const z=new Float32Array(W);const fov=Math.PI/2.8;
  for(let x=0;x<W;x+=2){const ang=me.a+Math.atan((x/W-.5)*2*Math.tan(fov/2));const dx=Math.cos(ang),dy=Math.sin(ang);let d=.03;while(d<75&&!wall(me.x+dx*d,me.y+dy*d))d+=.045;const corrected=d*Math.cos(ang-me.a),height=Math.min(H*2,H/(corrected*.085));const wx=me.x+dx*d,wy=me.y+dy*d;const shade=Math.floor(clamp(210-d*7,55,210));const edge=Math.min(wx%1,wy%1,1-wx%1,1-wy%1)<.05;ctx.fillStyle=edge?'rgb('+Math.floor(shade*.55)+','+Math.floor(shade*.5)+','+shade+')':'rgb('+Math.floor(shade*.45)+','+Math.floor(shade*.62)+','+shade+')';ctx.fillRect(x,horizon-height/2,2,height);z[x]=z[x+1]=d}
  const sprites=(mode==='solo'?bots:opponents).map(b=>({...b,d:Math.hypot(b.x-me.x,b.y-me.y)})).sort((a,b)=>b.d-a.d);
- for(const b of sprites){const rel=Math.atan2(b.y-me.y,b.x-me.x)-me.a,angle=Math.atan2(Math.sin(rel),Math.cos(rel));if(Math.abs(angle)>fov*.8||b.d<.25)continue;const sx=W/2+Math.tan(angle)/Math.tan(fov/2)*W/2,sz=Math.min(280,H/(b.d*.12));if(sx<0||sx>=W||b.d>z[clamp(Math.floor(sx),0,W-1)]+.25)continue;// Animated humanoid avatars: head, torso, swinging arms and walking legs.
- const walk=Math.sin(frame*.18+(b.x+b.y)*2)*sz*.065;
- const bodyColor=mode==='solo'?'#ff65c4':'#52e5e4';
- ctx.save();ctx.translate(sx,horizon+sz*.02-(b.z||0)*sz*.36);ctx.shadowColor=bodyColor;ctx.shadowBlur=12;
- ctx.fillStyle='#171d3d';ctx.fillRect(-sz*.17,sz*.09,sz*.13,sz*.34+walk);ctx.fillRect(sz*.04,sz*.09,sz*.13,sz*.34-walk);
- ctx.fillStyle=bodyColor;ctx.fillRect(-sz*.24,-sz*.30,sz*.48,sz*.45);
- ctx.fillStyle='#e9cbb4';ctx.fillRect(-sz*.17,-sz*.57,sz*.34,sz*.28);
- ctx.fillStyle='#1a254e';ctx.fillRect(-sz*.18,-sz*.59,sz*.36,sz*.10);
- ctx.fillStyle='#b2f5ff';ctx.fillRect(-sz*.09,-sz*.45,sz*.18,sz*.055);
- ctx.fillStyle=bodyColor;ctx.fillRect(-sz*.38,-sz*.27-walk,sz*.14,sz*.36);ctx.fillRect(sz*.24,-sz*.27+walk,sz*.14,sz*.36);
- ctx.fillStyle='#26365c';ctx.fillRect(sz*.10,-sz*.08,sz*.32,sz*.085);
+ for(const b of sprites){const rel=Math.atan2(b.y-me.y,b.x-me.x)-me.a,angle=Math.atan2(Math.sin(rel),Math.cos(rel));if(Math.abs(angle)>fov*.8||b.d<.25)continue;const sx=W/2+Math.tan(angle)/Math.tan(fov/2)*W/2,sz=Math.min(280,H/(b.d*.12));if(sx<0||sx>=W||b.d>z[clamp(Math.floor(sx),0,W-1)]+.25)continue;// Human-sized, unlit block-character sprites. Separate limbs and natural walk cycles.
+ const h=Math.min(170,Math.max(7,sz*.64)),w=h*.36;
+ const moving=Math.hypot(b.vx||0,b.vy||0)>.002;
+ const stride=moving?Math.sin(frame*.12+(b.phase||0))*h*.075:0;
+ const bob=moving?Math.abs(Math.sin(frame*.12+(b.phase||0)))*h*.018:0;
+ const skin=['#d8aa86','#e5bd98','#a8795e','#f0c6a3'][Math.abs(Math.floor((b.phase||0)*10))%4];
+ const shirt=['#4777b8','#4d996e','#b75f55','#a17ab5','#b5a15a'][Math.abs(Math.floor((b.phase||0)*10))%5];
+ const pants='#343d52';
+ ctx.save();ctx.translate(sx,horizon+h*.20-(b.z||0)*h*.45-bob);
+ ctx.shadowBlur=0;ctx.lineWidth=Math.max(1,h*.012);ctx.strokeStyle='#273247';
+ // Two legs move in opposite directions, with simple shoes.
+ ctx.fillStyle=pants;ctx.fillRect(-w*.43,h*.04+stride,w*.37,h*.39);ctx.fillRect(w*.06,h*.04-stride,w*.37,h*.39);
+ ctx.fillStyle='#242b38';ctx.fillRect(-w*.48,h*.40+stride,w*.45,h*.085);ctx.fillRect(w*.05,h*.40-stride,w*.45,h*.085);
+ // Narrower torso and distinct sleeves.
+ ctx.fillStyle=shirt;ctx.fillRect(-w*.52,-h*.36,w*1.04,h*.43);
+ ctx.fillRect(-w*.82,-h*.34-stride,w*.26,h*.35);ctx.fillRect(w*.56,-h*.34+stride,w*.26,h*.35);
+ ctx.fillStyle=skin;ctx.fillRect(-w*.82,-h*.04-stride,w*.26,h*.12);ctx.fillRect(w*.56,-h*.04+stride,w*.26,h*.12);
+ // Head with subtle hair and facial details, no glow or visor.
+ ctx.fillStyle=skin;ctx.fillRect(-w*.36,-h*.64,w*.72,h*.26);
+ ctx.fillStyle='#302a2b';ctx.fillRect(-w*.38,-h*.66,w*.76,h*.075);
+ ctx.fillStyle='#263044';ctx.fillRect(-w*.19,-h*.52,w*.07,h*.035);ctx.fillRect(w*.12,-h*.52,w*.07,h*.035);
  ctx.restore()}
  ctx.strokeStyle=shotFlash?'#ffdf6d':'#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(W/2-10,H/2);ctx.lineTo(W/2-3,H/2);ctx.moveTo(W/2+3,H/2);ctx.lineTo(W/2+10,H/2);ctx.moveTo(W/2,H/2-10);ctx.lineTo(W/2,H/2-3);ctx.moveTo(W/2,H/2+3);ctx.lineTo(W/2,H/2+10);ctx.stroke();
  ctx.fillStyle='#e8faff';ctx.font='bold 17px system-ui';ctx.fillText('NEON FRONTIER · '+(mode==='solo'?'AI ARENA':'ONLINE ARENA'),18,28);
@@ -56,7 +66,19 @@ function make(parent,mode,options={}){
  hud.textContent=mode==='solo'?'🎯 Tags: '+score+'/12 · Difficulty: '+['Easy','Medium','Hard','Extreme','Impossible'][difficulty]:'🎯 Tags: '+score+' · Opponents: '+opponents.length;
  }
  function tick(now){if(!live)return;const dt=Math.min((now-last)/16.67,2);last=now;frame++;if(keys.has('arrowleft'))me.a-=.055*dt;if(keys.has('arrowright'))me.a+=.055*dt;if(keys.has('arrowup'))me.pitch=clamp(me.pitch-.025*dt,-.85,.85);if(keys.has('arrowdown'))me.pitch=clamp(me.pitch+.025*dt,-.85,.85);if(keys.has(' ')&&me.z<=0)me.vz=.19;me.vz-=.012*dt;me.z=Math.max(0,me.z+me.vz*dt);if(me.z===0)me.vz=0;const f=Number(keys.has('w'))-Number(keys.has('s')),side=Number(keys.has('d'))-Number(keys.has('a')),speed=.095*dt;const dx=(Math.cos(me.a)*f-Math.sin(me.a)*side)*speed,dy=(Math.sin(me.a)*f+Math.cos(me.a)*side)*speed;if(!blocked(me.x+dx,me.y))me.x+=dx;if(!blocked(me.x,me.y+dy))me.y+=dy;
- if(mode==='solo'){bots.forEach((b,i)=>{const ang=Math.atan2(me.y-b.y,me.x-b.x),v=(.014+difficulty*.007)*dt;if(frame%(3+difficulty)===0){const nx=b.x+Math.cos(ang)*v,ny=b.y+Math.sin(ang)*v;if(!blocked(nx,b.y))b.x=nx;if(!blocked(b.x,ny))b.y=ny}b.phase+=.05*dt;b.z=Math.max(0,Math.sin(b.phase))*((i%3===0)?.42:0);if(Math.hypot(me.x-b.x,me.y-b.y)<.65)respawn(b)})} else if(frame%2===0)options.send?.({type:'move',x:me.x,y:me.y,a:me.a,z:me.z,pitch:me.pitch});
+ if(mode==='solo'){bots.forEach((b,i)=>{
+ const oldX=b.x,oldY=b.y,dist=Math.hypot(me.x-b.x,me.y-b.y);
+ if(!b.goal||frame%180===i*11%180){const orbit=i*2.4+frame*.002;b.goal={x:clamp(me.x+Math.cos(orbit)*(5+i%5*2),2,MW-3),y:clamp(me.y+Math.sin(orbit)*(5+i%5*2),2,MH-3)}}
+ let vx=b.goal.x-b.x,vy=b.goal.y-b.y;
+ // Keep opponents apart instead of stacking into one oversized silhouette.
+ for(const other of bots){if(other===b)continue;const ox=b.x-other.x,oy=b.y-other.y,sep=Math.hypot(ox,oy);if(sep>0&&sep<2.2){vx+=ox/sep*3;vy+=oy/sep*3}}
+ const len=Math.hypot(vx,vy)||1,step=(.025+difficulty*.004)*dt;
+ const nx=b.x+vx/len*step,ny=b.y+vy/len*step;
+ if(!blocked(nx,b.y))b.x=nx;if(!blocked(b.x,ny))b.y=ny;
+ b.vx=b.x-oldX;b.vy=b.y-oldY;
+ b.phase=(b.phase||i*.7);b.z=0;
+ if(dist<.65)respawn(b)
+ })} else if(frame%2===0)options.send?.({type:'move',x:me.x,y:me.y,a:me.a,z:me.z,pitch:me.pitch});
  if(shotFlash)shotFlash--;render();requestAnimationFrame(tick)}
  function onMouse(e){if(document.pointerLockElement===canvas)shoot();else lock()}
  function onSpace(e){if(e.code==='Space'&&document.activeElement===canvas){e.preventDefault()}}
