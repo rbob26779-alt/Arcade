@@ -1,3 +1,19 @@
+## Arcade Hub 3.2 — Persistent accounts (required setup)
+
+This release **requires PostgreSQL**. The web service will not start without `DATABASE_URL` and a stable `SESSION_SECRET` (32+ characters). This prevents silently creating accounts on temporary storage.
+
+1. Create a PostgreSQL database in Render (or another hosted PostgreSQL provider). Check pricing and expiration: free databases may expire.
+2. Copy its **internal database URL** when the database and web service are hosted on Render in the same region, or the appropriate connection URL for another provider.
+3. In Render → Arcade Web Service → Environment, set `DATABASE_URL` to that connection URL. Set `SESSION_SECRET` to a long, randomly generated string (keep it unchanged across deployments). Set `NODE_ENV` to `production`.
+4. Redeploy the latest commit. The app creates its database tables and stores accounts, password hashes, profile stats, and login sessions in PostgreSQL.
+5. Check the logs for “Arcade Hub with PostgreSQL”. Then test register, refresh, logout/login, and redeploy.
+
+Existing accounts stored in a previous `data.json` are imported only on the first database initialization **if that file is still present**. Accounts lost in a previous ephemeral deployment cannot be recovered from this update alone. Database backups and an active database service are still important.
+
+The app uses a 30-day login cookie, so users can remain logged in on the same browser. Clearing cookies, using private browsing, or signing out requires logging in again. Different devices require signing in with the same username and password. Never store raw passwords in browser storage.
+
+---
+
 # Arcade Hub 3.0
 
 20 playable browser games, local username/password accounts, global online leaderboard, and live two-player party matches for Tic-Tac-Toe and Connect Four.
