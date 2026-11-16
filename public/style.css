@@ -42,6 +42,7 @@ body.game-open #arena>.grid button{min-width:0;max-width:100%;padding:clamp(5px,
 .hangman-letters{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;width:min(100%,620px);margin:10px auto}
 #arena .hangman-key{min-width:38px;min-height:42px;margin:0;padding:8px 10px}
 #arena .hangman-key:disabled{opacity:.45}
+#arena .hangman-key.hangman-used{opacity:.55;text-decoration:line-through;text-decoration-thickness:2px;cursor:not-allowed}
 @media(max-width:480px){
   #catalog{grid-template-columns:repeat(2,minmax(0,1fr))}
   #arena>.grid{gap:4px}
