@@ -14,7 +14,7 @@ function make(parent,mode,opts={}){
  const help=document.createElement('p');help.textContent='WASD move · Shift sprint · Space jump · Mouse aim · Click shoot · Esc release cursor';root.append(help);
  const button=document.createElement('button');button.textContent='🎮 Click to enter 3D arena';root.append(button);
  const scene=new T.Scene();scene.background=new T.Color(selected.sky);scene.fog=new T.Fog(selected.sky,24,65);
- const camera=new T.PerspectiveCamera(78,960/540,.06,90);const ambient=new T.HemisphereLight(0xffffff,0x53627a,2.1);scene.add(ambient);const sun=new T.DirectionalLight(0xffffff,1.7);sun.position.set(20,35,12);scene.add(sun);
+ const camera=new T.PerspectiveCamera(78,960/540,.06,90);const resize=()=>{const width=Math.max(320,root.clientWidth-24),height=Math.round(width*9/16);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix()};window.addEventListener('resize',resize);resize();const ambient=new T.HemisphereLight(0xffffff,0x53627a,2.1);scene.add(ambient);const sun=new T.DirectionalLight(0xffffff,1.7);sun.position.set(20,35,12);scene.add(sun);
  const mat=(c)=>new T.MeshLambertMaterial({color:c});const groundMat=mat(selected.ground),wallMat=mat(selected.wall);
  const floor=new T.Mesh(new T.PlaneGeometry(W,H),groundMat);floor.rotation.x=-Math.PI/2;floor.position.set(W/2,0,H/2);scene.add(floor);
  // Distinct in-game architecture for each selected battleground.
@@ -132,7 +132,7 @@ function make(parent,mode,opts={}){
  renderer.render(scene,camera)
  }
  requestAnimationFrame(frameLoop);
- return{update(players){opponents=players.filter(p=>p.username!==opts.username).map(p=>({username:p.username,x:p.x,z:p.y,y:p.z||0,a:p.a}));const active=new Set(opponents.map(p=>p.username));for(const p of opponents)if(!avatars.has(p.username))avatar(p.username,avatars.size);for(const [id,a] of avatars)if(!id.startsWith('bot')&&!active.has(id)){scene.remove(a.group);avatars.delete(id)}},tag(){score++},damage,stop(){live=false;document.removeEventListener('keydown',onKeyDown);document.removeEventListener('keyup',onKeyUp);document.removeEventListener('mousemove',onMouse);if(document.pointerLockElement===renderer.domElement)document.exitPointerLock?.();renderer.dispose();root.remove()}}
+ return{update(players){opponents=players.filter(p=>p.username!==opts.username).map(p=>({username:p.username,x:p.x,z:p.y,y:p.z||0,a:p.a}));const active=new Set(opponents.map(p=>p.username));for(const p of opponents)if(!avatars.has(p.username))avatar(p.username,avatars.size);for(const [id,a] of avatars)if(!id.startsWith('bot')&&!active.has(id)){scene.remove(a.group);avatars.delete(id)}},tag(){score++},damage,stop(){live=false;document.removeEventListener('keydown',onKeyDown);document.removeEventListener('keyup',onKeyUp);document.removeEventListener('mousemove',onMouse);if(document.pointerLockElement===renderer.domElement)document.exitPointerLock?.();window.removeEventListener('resize',resize);renderer.dispose();root.remove()}}
 }
 window.FPSArena={make,ready:true};
 })();
