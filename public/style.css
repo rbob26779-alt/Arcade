@@ -49,3 +49,5 @@ body.game-open #arena>.grid button{min-width:0;max-width:100%;padding:clamp(5px,
   body.game-open #play{padding:10px}
   #arena .hangman-key{min-width:32px;min-height:38px;padding:6px}
 }
+
+.game-tile-wrap{display:flex;flex-direction:column;gap:7px;min-width:0}.game-tile-wrap .tile{width:100%;height:100%}.quick-play-btn{width:100%;font-size:13px;padding:9px 6px;background:linear-gradient(110deg,#087e8b,#2563eb);border-color:#7dd3fc}.quick-play-btn:hover{background:linear-gradient(110deg,#0e7490,#1d4ed8)}#quickStatus{grid-column:1/-1;text-align:center;font-weight:700;color:#bde8ff;min-height:1.5em}#cancelQuickQueue{grid-column:1/-1;justify-self:center;background:#7f1d1d;border-color:#fca5a5}
