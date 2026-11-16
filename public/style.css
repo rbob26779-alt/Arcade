@@ -16,3 +16,36 @@
 .neon-arena{display:block;width:min(100%,850px);height:auto;aspect-ratio:40/21;border:3px solid #a78bfa;border-radius:18px;box-shadow:0 0 35px #9333ea66;touch-action:none}#onlineboard[data-game="neontag"]{background:linear-gradient(130deg,#291457,#103d69)}
 
 .fps-root{width:min(100%,1100px);margin:14px auto;text-align:center;background:linear-gradient(145deg,#101c45,#372065);border:2px solid #8d7fff;border-radius:20px;padding:12px;box-shadow:0 12px 40px #0006}.fps-view{display:block;width:100%;height:auto;aspect-ratio:16/9;border:2px solid #6ad9ff;border-radius:12px;cursor:crosshair}.fps-hud{font-weight:800;color:#e0f2fe;margin:10px}.fps-root button{background:linear-gradient(110deg,#873eff,#06b6d4)}
+
+
+/* Responsive game centering and viewport safety */
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+main,main section,#play,#arena,#catalog,#onlineboard{min-width:0;max-width:100%}
+main{width:min(100%,1000px)}
+#catalog{width:100%;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));justify-items:stretch}
+#play{width:100%}
+#arena{width:100%;margin-inline:auto;padding-inline:clamp(4px,2vw,18px);align-items:center;justify-content:flex-start}
+#arena>*{max-width:100%;min-width:0}
+#arena>.grid{width:min(100%,580px);margin:12px auto;justify-self:center}
+#arena canvas,#arena svg{max-width:100%;height:auto}
+#arena input{width:min(100%,360px)}
+#arena .game-actions,#arena .pong-controls{justify-content:center;flex-wrap:wrap}
+#onlineboard{width:100%;overflow:hidden}
+#onlineboard canvas{display:block;width:min(100%,1000px);height:auto;margin-inline:auto}
+body.game-open #play{width:100vw;height:100vh;height:100dvh;max-width:100vw;overflow-x:hidden;overflow-y:auto;padding-inline:clamp(10px,3vw,32px)}
+body.game-open #arena{width:min(100%,1100px);margin-inline:auto}
+body.game-open #arena>.grid{width:min(100%,580px)}
+body.game-open #arena>.grid button{min-width:0;max-width:100%;padding:clamp(5px,1.5vw,11px)}
+.hangman-drawing{width:min(100%,240px);margin:0 auto;display:grid;place-items:center}
+.hangman-drawing svg{display:block;width:100%;max-height:220px}
+.hangman-word{font-size:clamp(22px,4vw,34px)!important;letter-spacing:.2em}
+.hangman-letters{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;width:min(100%,620px);margin:10px auto}
+#arena .hangman-key{min-width:38px;min-height:42px;margin:0;padding:8px 10px}
+#arena .hangman-key:disabled{opacity:.45}
+@media(max-width:480px){
+  #catalog{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #arena>.grid{gap:4px}
+  #arena>.grid button{padding:5px;font-size:clamp(13px,4vw,22px)}
+  body.game-open #play{padding:10px}
+  #arena .hangman-key{min-width:32px;min-height:38px;padding:6px}
+}
