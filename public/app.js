@@ -14,7 +14,6 @@ async function ensureFPS3DEngine(){
   const loadScript=src=>new Promise((resolve,reject)=>{
    const script=document.createElement('script');script.src=src;
    script.onload=resolve;script.onerror=()=>{script.remove();reject(new Error('Could not load '+src))};
-   document.head.append(document.createElement('span'));script.remove?.();
    document.head.append(script);
   });
   if(!window.THREE){
